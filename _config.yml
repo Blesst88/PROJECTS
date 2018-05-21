@@ -1,1 +1,5 @@
 theme: jekyll-theme-minimal
+layout: single
+permalink: projcapstone/
+title: &title "Project Capstone - Wine review"
+author_profile: true
