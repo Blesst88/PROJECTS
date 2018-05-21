@@ -3,3 +3,981 @@ layout: single
 permalink: projcapstone/
 title: &title "Project Capstone - Wine review"
 author_profile: true
+
+
+Research questions 
+
+Does wine descriptors impact Rating ?
+  - Machine learning to classify reviews 
+     what are key words that determines ratings?
+     
+    Apply Logistic regression, Random Forest to determine relationship between key words and ratings, wine type, varieties  
+        
+ There is a correlation between Ratings and Price ?
+   - Correlation analysis
+
+ The higher the Rating and Price the higher the consumption of the wine variety
+   - Linear Regression
+
+ Are wine descriptors good predictors of  wine price and points rating ?
+
+
+```python
+import numpy as np
+
+import csv
+import pandas as pd
+import matplotlib.pyplot as plt
+import statsmodels.api as sm
+import scipy.stats as stats
+
+pd.options.display.max_rows = 999
+pd.options.display.max_columns = 999
+
+from sklearn import cluster
+from sklearn import metrics
+from sklearn.metrics import pairwise_distances
+
+
+import seaborn as sns
+# this line tells jupyter notebook to put the plots in the notebook rather than saving them to file.
+%matplotlib inline
+
+pd.options.display.max_rows = 999
+pd.options.display.max_columns = 999
+```
+
+
+```python
+# path='C:/Users/bless/Documents/GitHub/projects/project-capstone/Capstone project data'
+# alternate file winemag-data-130k-v2.csv
+
+wine = pd.read_csv('C:/Users/bless/Documents/GitHub/projects/project-capstone/Wine/wine-reviews/winemag-data_first150k - Copy.csv',\
+                   index_col=0,parse_dates=True,   dayfirst=True,encoding='utf-8')
+
+```
+
+
+```python
+wine.head(5)
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>country</th>
+      <th>description</th>
+      <th>designation</th>
+      <th>points</th>
+      <th>price</th>
+      <th>province</th>
+      <th>region_1</th>
+      <th>region_2</th>
+      <th>variety</th>
+      <th>winery</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>US</td>
+      <td>This tremendous 100% varietal wine hails from ...</td>
+      <td>Martha's Vineyard</td>
+      <td>96</td>
+      <td>235.0</td>
+      <td>California</td>
+      <td>Napa Valley</td>
+      <td>Napa</td>
+      <td>Cabernet Sauvignon</td>
+      <td>Heitz</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Spain</td>
+      <td>Ripe aromas of fig, blackberry and cassis are ...</td>
+      <td>Carodorum Selección Especial Reserva</td>
+      <td>96</td>
+      <td>110.0</td>
+      <td>Northern Spain</td>
+      <td>Toro</td>
+      <td>NaN</td>
+      <td>Tinta de Toro</td>
+      <td>Bodega Carmen Rodríguez</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>US</td>
+      <td>Mac Watson honors the memory of a wine once ma...</td>
+      <td>Special Selected Late Harvest</td>
+      <td>96</td>
+      <td>90.0</td>
+      <td>California</td>
+      <td>Knights Valley</td>
+      <td>Sonoma</td>
+      <td>Sauvignon Blanc</td>
+      <td>Macauley</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>US</td>
+      <td>This spent 20 months in 30% new French oak, an...</td>
+      <td>Reserve</td>
+      <td>96</td>
+      <td>65.0</td>
+      <td>Oregon</td>
+      <td>Willamette Valley</td>
+      <td>Willamette Valley</td>
+      <td>Pinot Noir</td>
+      <td>Ponzi</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>France</td>
+      <td>This is the top wine from La Bégude, named aft...</td>
+      <td>La Brûlade</td>
+      <td>95</td>
+      <td>66.0</td>
+      <td>Provence</td>
+      <td>Bandol</td>
+      <td>NaN</td>
+      <td>Provence red blend</td>
+      <td>Domaine de la Bégude</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+
+```python
+# find out the data type of column 'variety' 
+type(wine['variety'].values[0])
+```
+
+
+
+
+    str
+
+
+
+
+```python
+wine.variety.unique()
+```
+
+
+
+
+    array(['Cabernet Sauvignon', 'Tinta de Toro', 'Sauvignon Blanc',
+           'Pinot Noir', 'Provence red blend', 'Friulano', 'Tannat',
+           'Chardonnay', 'Tempranillo', 'Malbec', 'Rosé', 'Tempranillo Blend',
+           'Syrah', 'Mavrud', 'Sangiovese', 'Sparkling Blend',
+           'Rhône-style White Blend', 'Red Blend', 'Mencía', 'Palomino',
+           'Petite Sirah', 'Riesling', 'Cabernet Sauvignon-Syrah',
+           'Portuguese Red', 'Nebbiolo', 'Pinot Gris', 'Meritage', 'Baga',
+           'Glera', 'Malbec-Merlot', 'Merlot-Malbec', 'Ugni Blanc-Colombard',
+           'Viognier', 'Cabernet Sauvignon-Cabernet Franc', 'Moscato',
+           'Pinot Grigio', 'Cabernet Franc', 'White Blend', 'Monastrell',
+           'Gamay', 'Zinfandel', 'Greco', 'Barbera', 'Grenache',
+           'Rhône-style Red Blend', 'Albariño', 'Malvasia Bianca',
+           'Assyrtiko', 'Malagouzia', 'Carmenère', 'Bordeaux-style Red Blend',
+           'Touriga Nacional', 'Agiorgitiko', 'Picpoul', 'Godello',
+           'Gewürztraminer', 'Merlot', 'Syrah-Grenache', 'G-S-M', 'Mourvèdre',
+           'Bordeaux-style White Blend', 'Petit Verdot', 'Muscat',
+           'Chenin Blanc-Chardonnay', 'Cabernet Sauvignon-Merlot',
+           'Pinot Bianco', 'Alvarinho', 'Portuguese White', 'Garganega',
+           'Sauvignon', 'Gros and Petit Manseng', 'Tannat-Cabernet',
+           'Alicante Bouschet', 'Aragonês', 'Silvaner', 'Ugni Blanc',
+           'Grüner Veltliner', 'Frappato', 'Lemberger', 'Sylvaner',
+           'Chasselas', 'Alsace white blend', 'Früburgunder', 'Kekfrankos',
+           'Vermentino', 'Sherry', 'Aglianico', 'Torrontés', 'Primitivo',
+           'Semillon-Sauvignon Blanc', 'Portuguese Rosé', 'Grenache-Syrah',
+           'Prié Blanc', 'Negrette', 'Furmint', 'Carignane', 'Pinot Blanc',
+           "Nero d'Avola", 'St. Laurent', 'Blauburgunder', 'Blaufränkisch',
+           'Scheurebe', 'Ribolla Gialla', 'Charbono',
+           'Malbec-Cabernet Sauvignon', 'Pinot Noir-Gamay', 'Pinot Nero',
+           'Gros Manseng', 'Nerello Mascalese', 'Shiraz', 'Negroamaro',
+           'Champagne Blend', 'Romorantin', 'Syrah-Cabernet Sauvignon',
+           'Tannat-Merlot', 'Duras', 'Garnacha', 'Tinta Francisca',
+           'Portuguese Sparkling', 'Chenin Blanc', 'Turbiana',
+           'Petite Verdot', 'Posip', 'Fumé Blanc', 'Roussanne', 'Grillo',
+           'Müller-Thurgau', 'Pinot Auxerrois', 'Port', 'Cabernet Blend',
+           'Cabernet Franc-Cabernet Sauvignon', 'Castelão', 'Encruzado',
+           'Touriga Nacional-Cabernet Sauvignon', 'Colombard-Sauvignon Blanc',
+           'Moscatel', 'Marsanne', 'Siria', 'Garnacha Blanca',
+           'Merlot-Cabernet Sauvignon', 'Arinto', 'Petit Manseng', 'Loureiro',
+           'Melon', 'Carricante', 'Fiano', 'Schwartzriesling',
+           'Sangiovese-Syrah', 'Tannat-Cabernet Franc',
+           'Cabernet Franc-Merlot', 'Sauvignon Blanc-Semillon', 'Macabeo',
+           'Alfrocheiro', 'Aligoté', 'Verdejo', 'Grenache Blanc',
+           'Fernão Pires', 'Spätburgunder', 'Ciliegiolo',
+           'Cabernet Sauvignon-Carmenère', 'Auxerrois', 'Sirica', 'Zweigelt',
+           'Pugnitello', 'Rosado', 'Rosato', 'Malvazija', 'Kalecik Karasi',
+           'Muskat Ottonel', 'Malbec-Bonarda',
+           'Tempranillo-Cabernet Sauvignon', 'Rivaner', 'Trepat', 'Baco Noir',
+           'Trebbiano', 'Chardonnay-Viognier', 'Syrah-Mourvèdre', 'Graciano',
+           'Roviello', 'Perricone', 'Falanghina', 'Vranec', 'Carignan',
+           'Cabernet-Shiraz', 'Verdelho', 'Pedro Ximénez',
+           'Marsanne-Roussanne', 'Malbec Blend', 'Weissburgunder', 'Morava',
+           'Ruen', 'Hondarrabi Zuri', 'Catarratto',
+           'Chardonnay-Sauvignon Blanc', 'Vidal', 'Rieslaner', 'Dornfelder',
+           'Tinto Fino', 'Gelber Muskateller', 'Roter Veltliner', 'Aragonez',
+           'Vitovska', 'Pinot Noir-Syrah', 'Gamay Noir', 'Grauburgunder',
+           'Cannonau', 'Mauzac', 'Austrian Red Blend', 'Sémillon',
+           'Lambrusco di Sorbara', 'Teran', 'Dolcetto', 'Cinsault',
+           'Assyrtico', 'Teroldego', 'Tamjanika', 'Boğazkere', 'Kadarka',
+           'Narince', 'Malbec-Petit Verdot', 'Veltliner', 'Traminer',
+           'Lambrusco', 'Arneis', 'Cabernet Sauvignon-Shiraz',
+           'Tocai Friulano', 'Fer Servadou', 'Muskateller',
+           'Nerello Cappuccio', 'Moscatel Roxo', 'Elbling', 'Saperavi',
+           'Antão Vaz', 'Pinot Meunier', 'Petite Syrah', 'Malvasia',
+           'Malbec-Tannat', 'Kallmet', 'Syrah-Merlot', 'Montepulciano',
+           'Kerner', 'Alvarinho-Chardonnay', 'Žilavka', 'Vinhão',
+           'Chardonnay-Semillon', 'Carmenère-Cabernet Sauvignon',
+           'Merlot-Cabernet Franc', 'Orangetraube',
+           'Cabernet Sauvignon-Sangiovese', 'Okuzgozu', 'Viura',
+           'Garnacha-Syrah', 'Zibibbo', 'Feteasca', 'Xarel-lo', 'Prokupac',
+           'Códega do Larinho', 'Touriga Nacional Blend', 'Inzolia',
+           'Cabernet-Syrah', 'Lambrusco Grasparossa', 'Malagousia',
+           'Cabernet Franc-Malbec', 'Feteasca Neagra', 'Yapincak',
+           'Tempranillo-Shiraz', 'Cabernet Sauvignon Grenache', 'Tinta Roriz',
+           'Merlot-Syrah', 'Tinta Fina', 'Colombard-Ugni Blanc', 'Colombard',
+           'Roditis', 'Grenache-Carignan', 'Emir', 'Orange Muscat',
+           'Karalahna', 'Trincadeira', 'Refosco', 'Pied de Perdrix',
+           'Vignoles', 'Carignan-Grenache', "Muscat d'Alexandrie", 'Bobal',
+           'Symphony', 'Norton', 'Sauvignon Blanc-Sauvignon Gris',
+           'Rkatsiteli', 'Roussanne-Viognier', 'Pinela', 'Blatina',
+           'Shiraz-Viognier', 'Bonarda', 'Sauvignon Blanc-Chardonnay',
+           'Chambourcin', 'Traminette', 'Grenache Blend', 'Jaen', 'Mondeuse',
+           'Feteascǎ Regalǎ', 'Teroldego Rotaliano',
+           'Sangiovese-Cabernet Sauvignon', 'Listán Negro',
+           'Syrah-Petite Sirah', 'Viognier-Chardonnay', 'Kuntra', 'Jacquère',
+           'Portuguiser', 'Grecanico', 'Verdejo-Viura', 'Tinto del Pais',
+           'Moscato Giallo', 'Cabernet Sauvignon-Malbec', 'Mission',
+           'Neuburger', 'Bastardo', 'Bical', 'Sacy', 'Carineña',
+           'Garnacha-Tempranillo', 'Pecorino', 'Garnacha Blend', 'Cococciola',
+           'Passerina', 'Gaglioppo', 'Garnacha Tintorera', 'Prieto Picudo',
+           'Tempranillo Blanco', "Cesanese d'Affile", 'Muscat Canelli',
+           'Cabernet', 'Malvasia Nera', 'Premsal', 'Mansois',
+           'Welschriesling', 'Shiraz-Tempranillo', 'Verdicchio', 'Sagrantino',
+           'Rolle', 'Trousseau Gris', 'Counoise', 'Mantonico',
+           'Cariñena-Garnacha', 'Insolia', 'Tokaji', 'Austrian white blend',
+           'Shiraz-Grenache', 'Claret', 'Syrah-Tempranillo', 'Uva di Troia',
+           'Aleatico', 'Piedirosso', 'Viognier-Marsanne',
+           'Pinot Grigio-Sauvignon Blanc', 'Pallagrello Nero',
+           'Chardonnay-Albariño', 'Savagnin', 'Pinotage', 'Braucol',
+           'Moschofilero', 'Nero di Troia', 'Carignano', 'Susumaniello',
+           'Baga-Touriga Nacional', 'Vidal Blanc', 'Vernaccia',
+           'Corvina, Rondinella, Molinara', 'Mavrotragano',
+           'Garnacha-Monastrell', 'Lagrein', 'Cabernet Merlot',
+           'Monastrell-Syrah', 'Malbec-Tempranillo', 'Syrah-Viognier',
+           'Verdeca', 'Sangiovese Grosso', 'Merlot-Argaman',
+           'Chenin Blanc-Viognier', 'Garnacha-Cabernet', 'Maturana', 'Malvar',
+           'Airen', 'Monica', 'Gewürztraminer-Riesling', 'Prugnolo Gentile',
+           'Steen', 'Chenin Blanc-Sauvignon Blanc',
+           'Shiraz-Cabernet Sauvignon', 'Picolit', 'Prosecco',
+           'White Riesling', 'White Port', 'Zierfandler', 'Petroulianos',
+           'Mavrodaphne', 'Savatiano', 'Tempranillo-Garnacha', 'Vidadillo',
+           'Syrah-Cabernet', 'Gelber Traminer', 'Grenache-Shiraz',
+           'Rotgipfler', 'Cabernet Sauvignon-Tempranillo', 'Edelzwicker',
+           'Cortese', 'Chardonnay Weissburgunder', 'Torbato', 'Verduzzo',
+           'Debit', 'Bovale', 'Tempranillo-Merlot', 'Xinisteri',
+           'Merlot-Cabernet', 'Verdejo-Sauvignon Blanc', 'Black Muscat',
+           'Koshu', 'Királyleányka', 'Favorita', 'Xinomavro',
+           'Cserszegi Fűszeres', 'Hárslevelü', 'Pallagrello', 'Mavroudi',
+           'Muscat Blanc', 'Schiava', 'Meoru', 'Nuragus',
+           'Trebbiano di Lugana', 'Coda di Volpe', 'Raboso',
+           'Shiraz-Pinotage', 'Enantio', 'Greco Bianco', 'Tai', 'Tokay',
+           'Muscadel', 'Cabernet Franc-Carmenère', 'Tintilia ', 'Segalin',
+           'Lacrima', 'Cerceal', 'Cayuga', 'Sauvignon Gris', 'Albana',
+           'Corvina', 'Macabeo-Moscatel', 'Macabeo-Chardonnay', 'Moscadello',
+           'Nasco', 'Viognier-Roussanne', 'Plavac Mali',
+           'Cabernet Sauvignon-Merlot-Shiraz', 'Sauvignon Blanc-Chenin Blanc',
+           'Shiraz-Mourvèdre', 'Albarín', 'Black Monukka', 'Morio Muskat',
+           'Nielluciu', 'Alicante', 'Cabernet Sauvignon and Tinta Roriz',
+           'Viura-Chardonnay', "Loin de l'Oeil", 'Roter Traminer',
+           'Karasakiz', 'Casavecchia', 'Malvasia-Viura', 'Nosiola',
+           'Incrocio Manzoni', 'Viura-Verdejo', 'Erbaluce', 'Forcallà',
+           'Pansa Blanca', 'Catalanesca', 'Muscadelle', 'Malbec-Syrah',
+           'Petit Meslier', 'Johannisberg Riesling', 'Pignoletto',
+           'Cabernet Pfeffer', 'Syrah-Cabernet Franc', 'Valdiguié', 'Mazuelo',
+           'Brachetto', 'Jacquez', 'Moscofilero', 'Chardonnay-Sauvignon',
+           'Madeleine Angevine', 'Ruché', 'Merlot-Petite Verdot',
+           'Roussanne-Marsanne', 'Moscatel de Alejandría',
+           'Muscat Blanc à Petit Grain', 'Sämling', 'Mtsvane', 'Zlahtina',
+           'Zelen', 'Doña Blanca', 'Carmenère-Syrah',
+           'Roussanne-Grenache Blanc', 'Kinali Yapincak', 'Robola',
+           'Pinot Blanc-Chardonnay', 'Chardonnay-Pinot Blanc',
+           'Saperavi-Merlot', 'Malvasia Istriana', 'Torontel', 'Picapoll',
+           'Zierfandler-Rotgipfler', 'Malvasia Fina', 'Chinuri', 'Muscatel',
+           'Sousão', 'Silvaner-Traminer', 'Syrah-Carignan', 'Bukettraube',
+           'Muskat', 'Argaman', 'Provence white blend', 'Touriga Franca',
+           'Morillon', 'Carignan-Syrah', 'Aidani', 'Viognier-Grenache Blanc',
+           'Albarossa', 'Sauvignon Blanc-Verdejo', 'Grenache-Mourvèdre',
+           'Tannat-Syrah', 'Seyval Blanc', 'Tocai Rosso', 'Pinot-Chardonnay',
+           'Moscatel Graúdo', 'Pigato', 'Siegerrebe', 'Bombino Bianco',
+           'Trebbiano-Malvasia', 'Magliocco', 'Verduzzo Friulano ',
+           'Vespaiolo', 'Marzemino', 'Tempranillo-Malbec', 'Crespiello',
+           'Cabernet Franc-Tempranillo', 'Gouveio', 'Caprettone',
+           'Garnacha-Graciano', 'Mataro', "Pineau d'Aunis", 'Bual', 'Sercial',
+           'Moscato di Noto', 'Sauvignonasse', 'Madeira Blend', 'St. George',
+           'Rebula', 'Pallagrello Bianco', 'Vilana', 'Pelaverga Piccolo',
+           'Syrah-Grenache-Viognier', 'Alvarelhão', 'Durif', 'Angevine',
+           'Semillon-Chardonnay', 'Pinot Blanc-Pinot Noir', 'Manzoni',
+           'Maréchal Foch', 'Blauer Portugieser', 'Tocai', 'Shiraz-Malbec',
+           'Cabernet Moravia', 'Espadeiro', 'País', 'Altesse', 'Avesso',
+           'Grignolino', 'Mandilaria', 'Freisa', 'Merlot-Shiraz', 'Dafni',
+           'Xynisteri', 'Grechetto', 'Roscetto', 'Sideritis',
+           'Pinotage-Merlot', 'Asprinio', 'Grolleau', 'Gragnano', 'Ansonica',
+           'Sangiovese Cabernet', 'Tinta Barroca', 'Syrah-Bonarda',
+           'Marsanne-Viognier', 'Azal', 'Durello', 'Syrah-Malbec',
+           'Malbec-Cabernet Franc', 'Franconia', 'Rufete', 'Parraleta',
+           'St. Vincent', 'Groppello', 'Athiri', 'Muscat of Alexandria',
+           'Malvoisie', 'Colorino', 'Merlot-Grenache', 'Terret Blanc',
+           'Chardonel', 'Macabeo-Gewürztraminer', 'Grenache Gris', 'Rabigato',
+           'Muscat Hamburg', 'Sarba', 'Irsai Oliver', 'Chardonnay-Pinot Gris',
+           'Vermentino Nero', 'Pardina', 'Apple', 'Clairette',
+           'Sauvignon Musqué', 'Shiraz-Merlot', 'Viognier-Valdiguié',
+           'Chardonelle', 'Malmsey', 'Tinta Negra Mole',
+           'Pinot Grigio-Chardonnay', 'Muscadet', 'Viura-Sauvignon Blanc',
+           'Huxelrebe', 'Tokay Pinot Gris', 'Chardonnay-Pinot Grigio',
+           'Moristel', 'Carnelian'], dtype=object)
+
+
+
+
+```python
+wine.dtypes
+```
+
+
+
+
+    country         object
+    description     object
+    designation     object
+    points           int64
+    price          float64
+    province        object
+    region_1        object
+    region_2        object
+    variety         object
+    winery          object
+    dtype: object
+
+
+
+
+```python
+wine.info()
+```
+
+    <class 'pandas.core.frame.DataFrame'>
+    Int64Index: 150930 entries, 0 to 150929
+    Data columns (total 10 columns):
+    country        150925 non-null object
+    description    150930 non-null object
+    designation    105195 non-null object
+    points         150930 non-null int64
+    price          137235 non-null float64
+    province       150925 non-null object
+    region_1       125870 non-null object
+    region_2       60953 non-null object
+    variety        150930 non-null object
+    winery         150930 non-null object
+    dtypes: float64(1), int64(1), object(8)
+    memory usage: 12.7+ MB
+    
+
+
+```python
+wine.columns
+```
+
+
+
+
+    Index(['country', 'description', 'designation', 'points', 'price', 'province',
+           'region_1', 'region_2', 'variety', 'winery'],
+          dtype='object')
+
+
+
+
+```python
+wine.describe(include='all')
+
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>country</th>
+      <th>description</th>
+      <th>designation</th>
+      <th>points</th>
+      <th>price</th>
+      <th>province</th>
+      <th>region_1</th>
+      <th>region_2</th>
+      <th>variety</th>
+      <th>winery</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>150925</td>
+      <td>150930</td>
+      <td>105195</td>
+      <td>150930.000000</td>
+      <td>137235.000000</td>
+      <td>150925</td>
+      <td>125870</td>
+      <td>60953</td>
+      <td>150930</td>
+      <td>150930</td>
+    </tr>
+    <tr>
+      <th>unique</th>
+      <td>48</td>
+      <td>97821</td>
+      <td>30620</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>455</td>
+      <td>1236</td>
+      <td>18</td>
+      <td>632</td>
+      <td>14810</td>
+    </tr>
+    <tr>
+      <th>top</th>
+      <td>US</td>
+      <td>A little bit funky and unsettled when you pop ...</td>
+      <td>Reserve</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>California</td>
+      <td>Napa Valley</td>
+      <td>Central Coast</td>
+      <td>Chardonnay</td>
+      <td>Williams Selyem</td>
+    </tr>
+    <tr>
+      <th>freq</th>
+      <td>62397</td>
+      <td>6</td>
+      <td>2752</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>44508</td>
+      <td>6209</td>
+      <td>13057</td>
+      <td>14482</td>
+      <td>374</td>
+    </tr>
+    <tr>
+      <th>mean</th>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>87.888418</td>
+      <td>33.131482</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>std</th>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>3.222392</td>
+      <td>36.322536</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>min</th>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>80.000000</td>
+      <td>4.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>25%</th>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>86.000000</td>
+      <td>16.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>50%</th>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>88.000000</td>
+      <td>24.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>75%</th>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>90.000000</td>
+      <td>40.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>max</th>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>100.000000</td>
+      <td>2300.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+
+```python
+# find null values 
+wine[wine['price'].isnull()].head()
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>country</th>
+      <th>description</th>
+      <th>designation</th>
+      <th>points</th>
+      <th>price</th>
+      <th>province</th>
+      <th>region_1</th>
+      <th>region_2</th>
+      <th>variety</th>
+      <th>winery</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>32</th>
+      <td>Italy</td>
+      <td>Underbrush, scorched earth, menthol and plum s...</td>
+      <td>Vigna Piaggia</td>
+      <td>90</td>
+      <td>NaN</td>
+      <td>Tuscany</td>
+      <td>Brunello di Montalcino</td>
+      <td>NaN</td>
+      <td>Sangiovese</td>
+      <td>Abbadia Ardenga</td>
+    </tr>
+    <tr>
+      <th>56</th>
+      <td>France</td>
+      <td>Delicious while also young and textured, this ...</td>
+      <td>Le Pavé</td>
+      <td>90</td>
+      <td>NaN</td>
+      <td>Loire Valley</td>
+      <td>Sancerre</td>
+      <td>NaN</td>
+      <td>Sauvignon Blanc</td>
+      <td>Domaine Vacheron</td>
+    </tr>
+    <tr>
+      <th>72</th>
+      <td>Italy</td>
+      <td>This offers aromas of red rose, wild berry, da...</td>
+      <td>Bussia Riserva</td>
+      <td>91</td>
+      <td>NaN</td>
+      <td>Piedmont</td>
+      <td>Barolo</td>
+      <td>NaN</td>
+      <td>Nebbiolo</td>
+      <td>Silvano Bolmida</td>
+    </tr>
+    <tr>
+      <th>82</th>
+      <td>Italy</td>
+      <td>Berry, baking spice, dried iris, mint and a hi...</td>
+      <td>Palliano Riserva</td>
+      <td>91</td>
+      <td>NaN</td>
+      <td>Piedmont</td>
+      <td>Roero</td>
+      <td>NaN</td>
+      <td>Nebbiolo</td>
+      <td>Ceste</td>
+    </tr>
+    <tr>
+      <th>116</th>
+      <td>Spain</td>
+      <td>Aromas of brandied cherry and crème de cassis ...</td>
+      <td>Dulce Tinto</td>
+      <td>86</td>
+      <td>NaN</td>
+      <td>Levante</td>
+      <td>Jumilla</td>
+      <td>NaN</td>
+      <td>Monastrell</td>
+      <td>Casa de la Ermita</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+
+```python
+# Do some preprocessing to limit the # of wine varities in the dataset
+wine = wine[pd.notnull(wine['country'])]
+wine = wine[pd.notnull(wine['price'])]
+# wine = wine.drop(wine.columns[0], axis=1) 
+
+variety_threshold = 500 # Anything that occurs less than this will be removed.
+value_counts = wine['variety'].value_counts()
+to_remove = value_counts[value_counts <= variety_threshold].index
+wine.replace(to_remove, np.nan, inplace=True)
+wine = wine[pd.notnull(wine['variety'])]
+```
+
+
+```python
+# Check for Nan cells 
+wine.isnull().sum().sum()
+
+nan_rows_price= wine[wine['price'].isnull()].T.any().T
+
+nan_rows_price.count()
+
+```
+
+
+
+
+    0
+
+
+
+
+```python
+# remove all nan prices rows 
+newwine=wine[~wine['price'].isnull()]
+
+# remove all nan rating rows 
+newwine=newwine[~newwine['points'].isnull()]
+
+newwine.info()
+```
+
+    <class 'pandas.core.frame.DataFrame'>
+    Int64Index: 119559 entries, 0 to 150929
+    Data columns (total 10 columns):
+    country        119559 non-null object
+    description    119559 non-null object
+    designation    82321 non-null object
+    points         119559 non-null int64
+    price          119559 non-null float64
+    province       119558 non-null object
+    region_1       100044 non-null object
+    region_2       57200 non-null object
+    variety        119559 non-null object
+    winery         119517 non-null object
+    dtypes: float64(1), int64(1), object(8)
+    memory usage: 10.0+ MB
+    
+
+
+```python
+# find all the unique points ratings
+newwine['points'].unique()
+```
+
+
+
+
+    array([ 96,  95,  94,  90,  91,  86,  89,  88,  87,  93,  92,  85,  84,
+            83,  82,  81, 100,  99,  98,  97,  80], dtype=int64)
+
+
+
+
+```python
+# # get a smaller subset of newwine to reduce memory requirements
+newwine=newwine[0:20000]
+```
+
+
+```python
+# reduce the records to top 16 varieties  as this counts for 16991 records or 85%
+
+winesub=newwine.loc[(newwine['variety'] == u'Pinot Noir') | (newwine['variety'] == u'Chardonnay') \
+   | (newwine['variety'] == u'Cabernet Sauvignon') | (newwine['variety'] == u'Red Blend')  \
+   | (newwine['variety'] == u'Bordeaux-style Red Blend') | (newwine['variety'] == u'Sauvignon Blanc') \
+   | (newwine['variety'] == u'Riesling') | (newwine['variety'] == u'Syrah')                                   
+   | (newwine['variety'] == u'Merlot') | (newwine['variety'] == u'Rosé')
+   | (newwine['variety'] == u'Malbec') | (newwine['variety'] == u'Zinfandel') 
+   | (newwine['variety'] == u'Nebbiolo') | (newwine['variety'] == u'Portuguese Red')   
+   | (newwine['variety'] == u'Sangiovese') | (newwine['variety'] == u'Sparkling Blend')                                         
+   | (newwine['variety'] == u'Rhône-style Red Blend') | (newwine['variety'] == u'Cabernet Franc') 
+   | (newwine['variety'] == u'Champagne Blend') | (newwine['variety'] == u'Grüner Veltliner') 
+   | (newwine['variety'] == u'Pinot Gris') | (newwine['variety'] == u'Gamay')                 
+   | (newwine['variety'] == u'Portuguese White') | (newwine['variety'] == u'Viognier')                                          
+   | (newwine['variety'] == u'Gewurztraminer') | (newwine['variety'] == u'Pinot Grigio') 
+   | (newwine['variety'] == u'Petite Sirah') | (newwine['variety'] == u'Bordeaux-style White Blend') 
+   | (newwine['variety'] == u'Carmenère') | (newwine['variety'] == u'Barbera')   
+   | (newwine['variety'] == u'Shiraz') | (newwine['variety'] == u'Grenache') 
+   | (newwine['variety'] == u'Sangiovese Grosso') | (newwine['variety'] == u'Tempranillo Blend')   
+   | (newwine['variety'] == u'Chenin Blanc') ] 
+```
+
+
+```python
+# Plot scatter plots
+import matplotlib
+import matplotlib.pyplot as plt
+fig = plt.figure(figsize=(18,12))
+ax = fig.gca()
+
+plt.ylim(0, 2500)
+plt.xlabel(r'Rating (Points)')
+plt.ylabel(r'Price in $')
+# plt.legend(loc='upper left')
+# actual known points
+plt.scatter(x = winesub['points'] ,y=winesub['price'],c='g')
+plt.xticks(rotation=90)
+plt.show()
+```
+
+
+![png](output_17_0.png)
+
+
+
+```python
+fig, ax =plt.subplots(1,2)
+
+sns.distplot(winesub['points'],ax=ax[0])
+sns.distplot(winesub['price'],ax=ax[1])
+
+fig.show()
+```
+
+    C:\Users\bless\Anaconda3\lib\site-packages\matplotlib\figure.py:418: UserWarning: matplotlib is currently using a non-GUI backend, so cannot show the figure
+      "matplotlib is currently using a non-GUI backend, "
+    
+
+
+![png](output_18_1.png)
+
+
+
+```python
+# Visualise the categorisation 
+
+g = sns.pairplot(data=winesub, hue='variety')
+g = (g.set(xlim=(80,101),ylim=(0,2500)))
+plt.title("Winery/Brand vs Price")
+plt.show(g)
+
+```
+
+
+![png](output_19_0.png)
+
+
+
+```python
+# Plot scatter plots
+import matplotlib
+import matplotlib.pyplot as plt
+fig = plt.figure(figsize=(18,12))
+ax = fig.gca()
+
+plt.ylim(50, 2500)
+plt.xlabel(r'Country')
+plt.ylabel(r'Price in $')
+plt.legend(loc='upper left')
+# actual known points
+plt.scatter(x = winesub['country'] ,y=winesub['price'],c='r')
+plt.xticks(rotation=45)
+plt.show()
+```
+
+    No handles with labels found to put in legend.
+    
+
+
+![png](output_20_1.png)
+
+
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+a4_dims = (16, 8.27)
+fig, ax = plt.subplots(figsize=a4_dims)
+
+sns.set_style("whitegrid")
+sns.barplot(x="variety", y="price", data=winesub,ax=ax)
+# g = sns.lmplot(x="Segment", y="Revenue", data=winesales, aspect=2)
+
+# g = (g.set_axis_labels("Returns","Revenue").set(xlim=(70,101),ylim=(0,120000)))
+     
+plt.title(" Variety vs Price")
+plt.xticks(rotation=90)
+ 
+plt.show(g)
+```
+
+
+![png](output_21_0.png)
+
+
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+a4_dims = (16, 8.27)
+fig, ax = plt.subplots(figsize=a4_dims)
+
+sns.set_style("whitegrid")
+sns.barplot(x="variety", y="points", data=winesub,ax=ax)
+# g = sns.lmplot(x="Segment", y="Revenue", data=winesales, aspect=2)
+
+# g = (g.set_axis_labels("Returns","Revenue").set(xlim=(70,101),ylim=(0,120000)))
+     
+plt.title(" Variety vs Points")
+plt.xticks(rotation=70)
+ 
+plt.show(g)
+```
+
+
+![png](output_22_0.png)
+
+
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# a4_dims = (11.7, 8.27)
+# fig, ax = plt.subplots(figsize=a4_dims)
+sns.set_style("whitegrid")
+g = sns.lmplot(x="points", y="price", data=winesub, aspect=2,size=5)
+g = (g.set_axis_labels("Points","Price").set(xlim=(80,101),ylim=(0,2500)))
+plt.title("Points vs Price")
+plt.show(g)
+
+```
+
+
+![png](output_23_0.png)
+
+
+
+
+
+
+
+
+
